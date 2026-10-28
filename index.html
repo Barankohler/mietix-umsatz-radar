@@ -129,9 +129,14 @@ function chancen() {
     const id = 'verl-' + v.nr + '-' + HEUTE;
     if (weg[id]) return;
     const preis = PREISE[v.auto];
+    /* Vorteilspreis: 15 % unter dem Tagespreis, auf einen 9er-Preis gerundet (549 -> 469) */
+    const sonder = preis ? Math.max(9, Math.round(preis * 0.85 / 10) * 10 - 1) : 0;
+    const angebot = preis
+      ? '*1 weiterer Tag für nur ' + eur(sonder) + ' € statt ' + eur(preis) + ' €*'
+      : '*1 weiterer Tag zum Vorteilspreis*';
     C.verl.push({ id, name: v.name, tel: v.telefon,
-      info: v.auto + ', Rückgabe heute ' + (v.bisU || '') + ', danach frei',
-      text: '*Ihr ' + v.auto + ' ist morgen noch frei*\n\nWenn Sie möchten, verlängern wir Ihre Miete bis morgen ' + (v.bisU ? v.bisU + ' Uhr' : 'zur gleichen Uhrzeit') + ':\n\n*1 weiterer Tag' + (preis ? ' für ' + eur(preis) + ' €' : '') + '*\n\nEine kurze Antwort genügt, wir kümmern uns um alles Weitere.\n\nIhr Mietix Team' });
+      info: v.auto + ', Rückgabe heute ' + (v.bisU || '') + ', danach frei' + (preis ? ', Angebot ' + eur(sonder) + ' € statt ' + eur(preis) + ' €' : ''),
+      text: '*Ihr ' + v.auto + ' ist morgen noch frei*\n\nDer Wagen ist morgen ohnehin nicht verplant, diesen Vorteil geben wir direkt an Sie weiter:\n\n' + angebot + '\n\nSo haben beide Seiten etwas davon. Eine kurze Antwort genügt, wir verlängern bis morgen ' + (v.bisU ? v.bisU + ' Uhr' : 'zur gleichen Uhrzeit') + ' und kümmern uns um alles Weitere.\n\nIhr Mietix Team' });
   });
 
   /* 2. Geburtstage in den nächsten 14 Tagen */
