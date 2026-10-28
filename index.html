@@ -1,0 +1,247 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex">
+<link rel="icon" href="data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 100 100%22><text y=%22.9em%22 font-size=%2290%22>🏎️</text></svg>">
+<title>Mietix Umsatz-Radar</title>
+<style>
+  :root {
+    --ink: #2E2E30; --ink-soft: #4A4F57; --muted: #858B94;
+    --line: #E2E2E4; --line-strong: #CDD0D6;
+    --paper: #FFFFFF; --ground: #F2F2F4; --field: #FBFBFC;
+    --accent: #C4161C; --accent-dark: #9A1116; --good: #1B7A44;
+    --shadow: 0 1px 2px rgba(0,0,0,.05), 0 6px 16px rgba(0,0,0,.045);
+    --radius: 16px;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--ground); color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    line-height: 1.5; -webkit-text-size-adjust: 100%; }
+  .topbar { border-bottom: 3px solid var(--accent); background: var(--ink); color: #fff;
+    padding: 18px 20px; display: flex; align-items: baseline; gap: 12px; }
+  .brand { font-weight: 700; letter-spacing: -0.02em; font-size: 18px; }
+  .brand .dot { color: var(--accent); }
+  .brand-sub { font-size: 12px; text-transform: uppercase; letter-spacing: 0.12em; color: #A9AEB6; }
+
+  .wrap { max-width: 720px; margin: 0 auto; padding: 22px 16px 60px; }
+  .panel { background: var(--paper); border: 1px solid var(--line); border-radius: var(--radius);
+    box-shadow: var(--shadow); margin-bottom: 18px; overflow: hidden; }
+  .panel-head { padding: 14px 18px; border-bottom: 1px solid var(--line);
+    display: flex; justify-content: space-between; align-items: center; }
+  .panel-head h2 { margin: 0; font-size: 13px; text-transform: uppercase; letter-spacing: 0.1em;
+    color: var(--muted); font-weight: 600; }
+  .anz { font-size: 12px; font-weight: 700; background: var(--accent); color: #fff;
+    border-radius: 99px; padding: 2px 10px; }
+  .anz.leer { background: #E3F4EA; color: var(--good); }
+
+  .zeile { padding: 13px 18px; border-bottom: 1px solid var(--line); }
+  .zeile:last-child { border-bottom: 0; }
+  .zeile b { font-size: 15px; }
+  .zeile .info { color: var(--muted); font-size: 13px; margin: 1px 0 8px; }
+  .leer-text { padding: 14px 18px; color: var(--muted); font-size: 13.5px; }
+  .knoepfe { display: flex; gap: 8px; flex-wrap: wrap; }
+  .k { font: 600 13px -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    border-radius: 9px; padding: 8px 13px; border: 1px solid transparent; cursor: pointer;
+    display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+  .k:active { transform: translateY(1px); }
+  .k-wa { background: #25D366; color: #06331b; }
+  .k-copy { background: var(--ink); color: #fff; }
+  .k-copy.done { background: var(--good); }
+  .k-weg { background: #fff; color: var(--ink-soft); border-color: var(--line-strong); }
+  .hinweis { font-size: 12.5px; color: var(--muted); margin: 4px 2px 18px; }
+</style>
+</head>
+<body>
+
+<div class="topbar">
+  <span class="brand">Mietix<span class="dot">.</span></span>
+  <span class="brand-sub">Sportwagenvermietung, Umsatz-Radar</span>
+</div>
+
+<div class="wrap">
+  <div class="hinweis">Der Radar liest die Mietverträge dieses Geräts und zeigt fertige Umsatz-Chancen mit Kopiertext. "Erledigt" blendet eine Chance aus, bis es einen neuen Anlass gibt.</div>
+  <div id="radar"></div>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const lies = (k, d) => { try { return JSON.parse(localStorage.getItem(k) || '') || d; } catch (e) { return d; } };
+const schreib = (k, v) => { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} };
+const pad = n => String(n).padStart(2, '0');
+const iso = d => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const de = s => s ? String(s).slice(0, 10).split('-').reverse().join('.') : '';
+const eur = n => (n || 0).toLocaleString('de-DE', { maximumFractionDigits: 0 });
+const HEUTE = iso(new Date());
+const plusTage = (isoTag, n) => { const d = new Date(isoTag + 'T12:00'); d.setDate(d.getDate() + n); return iso(d); };
+const vorname = n => String(n || '').trim().split(/\s+/)[0] || '';
+const WEGKEY = 'mietixRadarWeg';
+
+function digitsOnly(t) {
+  let d = String(t || '').replace(/[^\d+]/g, '');
+  if (d.startsWith('00')) d = d.slice(2);
+  else if (d.startsWith('+')) d = d.slice(1);
+  else if (d.startsWith('0')) d = '49' + d.slice(1);
+  return d;
+}
+
+/* Tagespreise aus der gemeinsamen Preisdatei (für das Verlängerungs-Angebot) */
+let PREISE = {};
+try {
+  fetch('https://barankohler.github.io/mietix-preise/preise.json', { cache: 'no-store' })
+    .then(r => r.ok ? r.json() : null)
+    .then(pd => { if (pd && pd.cars) { pd.cars.forEach(c => { PREISE[c.anzeige || c.n] = c.gp; }); zeichnen(); } })
+    .catch(() => {});
+} catch (e) {}
+
+function chancen() {
+  const V = lies('mietixVorgaenge', []);
+  const weg = lies(WEGKEY, {});
+  const morgen = plusTage(HEUTE, 1);
+
+  /* Kunden zusammenfassen: Anzahl Mieten, letzte Miete, Telefon, Geburtstag */
+  const K = {};
+  V.forEach(v => {
+    if (!v.name) return;
+    const k = K[v.name] = K[v.name] || { name: v.name, n: 0, letzte: '', auto: '', tel: '', geb: '' };
+    k.n++;
+    const ende = v.bisD || v.vonD || '';
+    if (ende >= k.letzte) { k.letzte = ende; k.auto = v.auto || k.auto; }
+    if (v.telefon) k.tel = v.telefon;
+    if (v.geb) k.geb = v.geb;
+  });
+
+  const C = { verl: [], geb: [], jahr: [], stamm: [], schlaf: [] };
+
+  /* 1. Verlängerung: Rückgabe heute, Auto danach frei */
+  const belegt = (auto, abNr) => {
+    const ueber = (a1, b1, a2, b2) => a1 < b2 && b1 > a2;
+    let t = false;
+    V.forEach(x => { if (x.nr !== abNr && x.auto === auto && x.status !== 'zurück' && x.vonD && x.bisD && ueber(HEUTE, morgen, x.vonD, x.bisD)) t = true; });
+    lies('mietixAnfragen', []).forEach(a => { if (a.status === 'gebucht' && a.auto === auto && a.von && a.bis && ueber(HEUTE, morgen, a.von, a.bis)) t = true; });
+    lies('mietixSperren', []).forEach(x => { if (x.auto === auto && x.von && x.bis && ueber(HEUTE, morgen, x.von, x.bis)) t = true; });
+    return t;
+  };
+  V.forEach(v => {
+    if (v.status === 'zurück' || v.bisD !== HEUTE || !v.auto) return;
+    if (belegt(v.auto, v.nr)) return;
+    const id = 'verl-' + v.nr + '-' + HEUTE;
+    if (weg[id]) return;
+    const preis = PREISE[v.auto];
+    C.verl.push({ id, name: v.name, tel: v.telefon,
+      info: v.auto + ', Rückgabe heute ' + (v.bisU || '') + ', danach frei',
+      text: '*Noch keine Lust, den ' + v.auto + ' abzugeben?* 🏎️\n\nDer Wagen ist morgen noch frei. Sie können ihn einfach bis morgen ' + (v.bisU || 'zur gleichen Uhrzeit') + ' behalten:\n\n👉 *1 weiterer Tag' + (preis ? ' für ' + eur(preis) + ' €' : '') + '*\n\nEine kurze Antwort genügt, wir verlängern den Vertrag für Sie.' });
+  });
+
+  /* 2. Geburtstage in den nächsten 14 Tagen */
+  Object.values(K).forEach(k => {
+    if (!k.geb) return;
+    const g = String(k.geb).slice(0, 10);
+    const mmtt = g.slice(5);
+    if (!/^\d\d-\d\d$/.test(mmtt)) return;
+    for (let i = 0; i < 14; i++) {
+      const tag = plusTage(HEUTE, i);
+      if (tag.slice(5) === mmtt) {
+        const id = 'geb-' + k.name + '-' + tag.slice(0, 4);
+        if (weg[id]) return;
+        C.geb.push({ id, name: k.name, tel: k.tel,
+          info: 'Geburtstag ' + (i === 0 ? 'HEUTE' : i === 1 ? 'morgen' : 'am ' + de(tag)) + (k.auto ? ', zuletzt ' + k.auto : ''),
+          text: '*Alles Gute zum Geburtstag' + (vorname(k.name) ? ', ' + vorname(k.name) : '') + '!* 🎉\n\nZu Ihrem Ehrentag schenken wir Ihnen:\n\n🎁 *10 % auf Ihre nächste Miete*\n(einlösbar innerhalb von 30 Tagen)\n\nWelcher Wagen darf es diesmal sein? 🏎️\n\nIhr Mietix Team' });
+        return;
+      }
+    }
+  });
+
+  /* 3. Miet-Jahrestag in den nächsten 7 Tagen */
+  V.forEach(v => {
+    if (!v.vonD || !v.name) return;
+    const j = (parseInt(v.vonD.slice(0, 4), 10) + 1) + v.vonD.slice(4);
+    if (j < HEUTE || j > plusTage(HEUTE, 6)) return;
+    const id = 'jahr-' + v.nr;
+    if (weg[id]) return;
+    C.jahr.push({ id, name: v.name, tel: v.telefon,
+      info: 'Vor einem Jahr (' + de(v.vonD) + '): ' + (v.auto || ''),
+      text: '*Heute vor einem Jahr...* 📅\n\n...waren Sie mit dem *' + (v.auto || 'Mietwagen') + '* unterwegs. Zeit für eine Wiederholung?\n\n🎁 Zum Jahrestag legen wir Ihnen *100 Freikilometer extra* auf die nächste Miete drauf.\n\nIhr Mietix Team' });
+  });
+
+  /* 4. Stammkunden: 3 oder mehr Mieten */
+  Object.values(K).forEach(k => {
+    if (k.n < 3) return;
+    const id = 'stamm-' + k.name + '-' + k.n;
+    if (weg[id]) return;
+    C.stamm.push({ id, name: k.name, tel: k.tel,
+      info: k.n + ' Mieten, zuletzt ' + (k.auto || '') + ' am ' + de(k.letzte),
+      text: '*Danke für Ihre Treue' + (vorname(k.name) ? ', ' + vorname(k.name) : '') + '!* 🙏\n\nSie haben schon *' + k.n + ' Mal* bei uns gemietet. Als Stammkunde bekommen Sie:\n\n🎁 *100 Freikilometer extra* auf Ihre nächste Miete\n\nEinfach bei der Buchung kurz diesen Chat erwähnen.\n\nIhr Mietix Team' });
+  });
+
+  /* 5. Schläfer: letzte Miete über 6 Monate her */
+  const grenze = plusTage(HEUTE, -183);
+  Object.values(K).forEach(k => {
+    if (!k.letzte || k.letzte >= grenze) return;
+    const id = 'schlaf-' + k.name + '-' + k.letzte;
+    if (weg[id]) return;
+    C.schlaf.push({ id, name: k.name, tel: k.tel,
+      info: 'Letzte Miete am ' + de(k.letzte) + (k.auto ? ' (' + k.auto + ')' : ''),
+      text: '*Lange nicht gesehen' + (vorname(k.name) ? ', ' + vorname(k.name) : '') + '!* 👋\n\nIhre letzte Fahrt' + (k.auto ? ' mit dem ' + k.auto : '') + ' ist schon eine Weile her. Kommen Sie zurück:\n\n🎁 *100 Freikilometer extra*, wenn Sie innerhalb von 14 Tagen buchen.\n\nWelcher Wagen darf es sein? 🏎️\n\nIhr Mietix Team' });
+  });
+
+  return C;
+}
+
+function block(titel, liste, leerText) {
+  let h = '<div class="panel"><div class="panel-head"><h2>' + titel + '</h2>'
+    + '<span class="anz' + (liste.length ? '' : ' leer') + '">' + liste.length + '</span></div>';
+  if (!liste.length) { h += '<div class="leer-text">' + leerText + '</div></div>'; return h; }
+  liste.forEach((c, i) => {
+    h += '<div class="zeile"><b>' + esc(c.name || 'ohne Name') + '</b>'
+      + '<div class="info">' + esc(c.info) + '</div>'
+      + '<div class="knoepfe">'
+      + '<a class="k k-wa" data-wa="' + esc(c.id) + '">WhatsApp</a>'
+      + '<a class="k k-copy" data-copy="' + esc(c.id) + '">Text kopieren</a>'
+      + '<a class="k k-weg" data-weg="' + esc(c.id) + '">Erledigt</a>'
+      + '</div></div>';
+  });
+  return h + '</div>';
+}
+function esc(s) { const d = document.createElement('div'); d.textContent = s == null ? '' : s; return d.innerHTML; }
+
+let ALLE = {};
+function zeichnen() {
+  const C = chancen();
+  ALLE = {};
+  [].concat(C.verl, C.geb, C.jahr, C.stamm, C.schlaf).forEach(c => { ALLE[c.id] = c; });
+  $('radar').innerHTML =
+    block('Heute verlängern', C.verl, 'Keine Rückgabe heute, nach der das Fahrzeug frei wäre.')
+    + block('Geburtstage (14 Tage)', C.geb, 'Kein Kunde hat in den nächsten 14 Tagen Geburtstag.')
+    + block('Miet-Jahrestage (7 Tage)', C.jahr, 'Kein Jahrestag in den nächsten 7 Tagen.')
+    + block('Stammkunden (3+ Mieten)', C.stamm, 'Alle Stammkunden sind angeschrieben.')
+    + block('Schläfer (über 6 Monate)', C.schlaf, 'Keine schlafenden Kunden, stark.');
+
+  document.querySelectorAll('[data-wa]').forEach(el => el.onclick = () => {
+    const c = ALLE[el.dataset.wa]; if (!c) return;
+    const url = c.tel ? 'https://wa.me/' + digitsOnly(c.tel) + '?text=' + encodeURIComponent(c.text)
+      : 'https://wa.me/?text=' + encodeURIComponent(c.text);
+    window.open(url, '_blank');
+  });
+  document.querySelectorAll('[data-copy]').forEach(el => el.onclick = async () => {
+    const c = ALLE[el.dataset.copy]; if (!c) return;
+    try { await navigator.clipboard.writeText(c.text); } catch (e) {
+      const ta = document.createElement('textarea'); ta.value = c.text;
+      document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
+    }
+    el.classList.add('done'); el.textContent = 'Kopiert';
+    setTimeout(() => { el.classList.remove('done'); el.textContent = 'Text kopieren'; }, 1600);
+  });
+  document.querySelectorAll('[data-weg]').forEach(el => el.onclick = () => {
+    const weg = lies(WEGKEY, {});
+    weg[el.dataset.weg] = HEUTE;
+    schreib(WEGKEY, weg);
+    zeichnen();
+  });
+}
+zeichnen();
+document.addEventListener('visibilitychange', () => { if (!document.hidden) zeichnen(); });
+</script>
+</body>
+</html>
