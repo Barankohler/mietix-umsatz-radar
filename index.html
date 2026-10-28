@@ -131,7 +131,7 @@ function chancen() {
     const preis = PREISE[v.auto];
     C.verl.push({ id, name: v.name, tel: v.telefon,
       info: v.auto + ', Rückgabe heute ' + (v.bisU || '') + ', danach frei',
-      text: '*Noch keine Lust, den ' + v.auto + ' abzugeben?* 🏎️\n\nDer Wagen ist morgen noch frei. Sie können ihn einfach bis morgen ' + (v.bisU || 'zur gleichen Uhrzeit') + ' behalten:\n\n👉 *1 weiterer Tag' + (preis ? ' für ' + eur(preis) + ' €' : '') + '*\n\nEine kurze Antwort genügt, wir verlängern den Vertrag für Sie.' });
+      text: '*Ihr ' + v.auto + ' ist morgen noch frei* 🏎️\n\nWenn Sie möchten, verlängern wir Ihre Miete bis morgen ' + (v.bisU ? v.bisU + ' Uhr' : 'zur gleichen Uhrzeit') + ':\n\n👉 *1 weiterer Tag' + (preis ? ' für ' + eur(preis) + ' €' : '') + '*\n\nEine kurze Antwort genügt, wir kümmern uns um alles Weitere.\n\nIhr Mietix Team' });
   });
 
   /* 2. Geburtstage in den nächsten 14 Tagen */
@@ -162,7 +162,7 @@ function chancen() {
     if (weg[id]) return;
     C.jahr.push({ id, name: v.name, tel: v.telefon,
       info: 'Vor einem Jahr (' + de(v.vonD) + '): ' + (v.auto || ''),
-      text: '*Heute vor einem Jahr...* 📅\n\n...waren Sie mit dem *' + (v.auto || 'Mietwagen') + '* unterwegs. Zeit für eine Wiederholung?\n\n🎁 Zum Jahrestag legen wir Ihnen *100 Freikilometer extra* auf die nächste Miete drauf.\n\nIhr Mietix Team' });
+      text: '*Heute vor einem Jahr...* 📅\n\n...waren Sie mit dem *' + (v.auto || 'Mietwagen') + '* unterwegs. Zeit für eine Wiederholung?\n\n🎁 Zum Jahrestag schenken wir Ihnen *100 Freikilometer extra* auf Ihre nächste Miete.\n\nWann dürfen wir ihn wieder für Sie bereitstellen?\n\nIhr Mietix Team' });
   });
 
   /* 4. Stammkunden: 3 oder mehr Mieten */
@@ -172,7 +172,7 @@ function chancen() {
     if (weg[id]) return;
     C.stamm.push({ id, name: k.name, tel: k.tel,
       info: k.n + ' Mieten, zuletzt ' + (k.auto || '') + ' am ' + de(k.letzte),
-      text: '*Danke für Ihre Treue' + (vorname(k.name) ? ', ' + vorname(k.name) : '') + '!* 🙏\n\nSie haben schon *' + k.n + ' Mal* bei uns gemietet. Als Stammkunde bekommen Sie:\n\n🎁 *100 Freikilometer extra* auf Ihre nächste Miete\n\nEinfach bei der Buchung kurz diesen Chat erwähnen.\n\nIhr Mietix Team' });
+      text: '*Danke für Ihre Treue' + (vorname(k.name) ? ', ' + vorname(k.name) : '') + '!* 🙏\n\nSie haben bereits *' + k.n + ' Mal* bei uns gemietet, das wissen wir sehr zu schätzen. Als Stammkunde erhalten Sie:\n\n🎁 *100 Freikilometer extra* auf Ihre nächste Miete\n\nEinfach bei der Buchung kurz diese Nachricht erwähnen.\n\nIhr Mietix Team' });
   });
 
   /* 5. Schläfer: letzte Miete über 6 Monate her */
@@ -183,7 +183,7 @@ function chancen() {
     if (weg[id]) return;
     C.schlaf.push({ id, name: k.name, tel: k.tel,
       info: 'Letzte Miete am ' + de(k.letzte) + (k.auto ? ' (' + k.auto + ')' : ''),
-      text: '*Lange nicht gesehen' + (vorname(k.name) ? ', ' + vorname(k.name) : '') + '!* 👋\n\nIhre letzte Fahrt' + (k.auto ? ' mit dem ' + k.auto : '') + ' ist schon eine Weile her. Kommen Sie zurück:\n\n🎁 *100 Freikilometer extra*, wenn Sie innerhalb von 14 Tagen buchen.\n\nWelcher Wagen darf es sein? 🏎️\n\nIhr Mietix Team' });
+      text: '*Lange nicht gesehen' + (vorname(k.name) ? ', ' + vorname(k.name) : '') + '!* 👋\n\nIhre letzte Fahrt' + (k.auto ? ' mit dem ' + k.auto : '') + ' ist schon eine Weile her. Als Dankeschön für Ihr Vertrauen:\n\n🎁 *100 Freikilometer extra* bei Buchung innerhalb der nächsten 14 Tage\n\nWelcher Wagen darf es diesmal sein? 🏎️\n\nIhr Mietix Team' });
   });
 
   return C;
