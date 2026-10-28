@@ -51,6 +51,12 @@
   .k-copy.done { background: var(--good); }
   .k-weg { background: #fff; color: var(--ink-soft); border-color: var(--line-strong); }
   .hinweis { font-size: 12.5px; color: var(--muted); margin: 4px 2px 18px; }
+  .preiszeile { display: flex; align-items: center; gap: 10px; margin: 0 0 9px; }
+  .preiszeile label { font-size: 12.5px; font-weight: 600; color: var(--ink-soft); }
+  .preiszeile input { width: 110px; font: inherit; font-weight: 700; color: var(--ink);
+    background: var(--field); border: 1px solid var(--line-strong); border-radius: 9px;
+    padding: 8px 10px; outline: none; font-variant-numeric: tabular-nums; }
+  .preiszeile input:focus { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(177,18,38,.12); background: #fff; }
 </style>
 </head>
 <body>
@@ -129,14 +135,17 @@ function chancen() {
     const id = 'verl-' + v.nr + '-' + HEUTE;
     if (weg[id]) return;
     const preis = PREISE[v.auto];
-    /* Vorteilspreis: 15 % unter dem Tagespreis, auf einen 9er-Preis gerundet (549 -> 469) */
-    const sonder = preis ? Math.max(9, Math.round(preis * 0.85 / 10) * 10 - 1) : 0;
-    const angebot = preis
-      ? '*1 weiterer Tag für nur ' + eur(sonder) + ' € statt ' + eur(preis) + ' €*'
-      : '*1 weiterer Tag zum Vorteilspreis*';
-    C.verl.push({ id, name: v.name, tel: v.telefon,
-      info: v.auto + ', Rückgabe heute ' + (v.bisU || '') + ', danach frei' + (preis ? ', Angebot ' + eur(sonder) + ' € statt ' + eur(preis) + ' €' : ''),
-      text: '*Ihr ' + v.auto + ' ist morgen noch frei*\n\nDer Wagen ist morgen ohnehin nicht verplant, diesen Vorteil geben wir direkt an Sie weiter:\n\n' + angebot + '\n\nSo haben beide Seiten etwas davon. Eine kurze Antwort genügt, wir verlängern bis morgen ' + (v.bisU ? v.bisU + ' Uhr' : 'zur gleichen Uhrzeit') + ' und kümmern uns um alles Weitere.\n\nIhr Mietix Team' });
+    /* Preisvorschlag: 15 % unter dem Tagespreis, auf einen 9er-Preis gerundet. Den
+       endgültigen Verlängerungspreis bestimmt Baran je Fall im Preisfeld der Zeile. */
+    const vorschlag = preis ? Math.max(9, Math.round(preis * 0.85 / 10) * 10 - 1) : 0;
+    C.verl.push({ id, name: v.name, tel: v.telefon, vorschlag,
+      info: v.auto + ', Rückgabe heute ' + (v.bisU || '') + ', danach frei' + (preis ? ', Tagespreis ' + eur(preis) + ' €' : ''),
+      bauText: p => {
+        const angebot = p
+          ? '*1 weiterer Tag für nur ' + eur(p) + ' €' + (preis && p < preis ? ' statt ' + eur(preis) + ' €' : '') + '*'
+          : '*1 weiterer Tag zum Vorteilspreis*';
+        return '*Ihr ' + v.auto + ' ist morgen noch frei*\n\nDer Wagen ist morgen ohnehin nicht verplant, diesen Vorteil geben wir direkt an Sie weiter:\n\n' + angebot + '\n\nSo haben beide Seiten etwas davon. Eine kurze Antwort genügt, wir verlängern bis morgen ' + (v.bisU ? v.bisU + ' Uhr' : 'zur gleichen Uhrzeit') + ' und kümmern uns um alles Weitere.\n\nIhr Mietix Team';
+      } });
   });
 
   /* 2. Geburtstage in den nächsten 14 Tagen */
@@ -201,6 +210,8 @@ function block(titel, liste, leerText) {
   liste.forEach((c, i) => {
     h += '<div class="zeile"><b>' + esc(c.name || 'ohne Name') + '</b>'
       + '<div class="info">' + esc(c.info) + '</div>'
+      + (c.bauText ? '<div class="preiszeile"><label>Verlängerungspreis €</label>'
+        + '<input inputmode="decimal" data-preis="' + esc(c.id) + '" value="' + (c.vorschlag || '') + '"></div>' : '')
       + '<div class="knoepfe">'
       + '<a class="k k-wa" data-wa="' + esc(c.id) + '">WhatsApp</a>'
       + '<a class="k k-copy" data-copy="' + esc(c.id) + '">Text kopieren</a>'
@@ -223,16 +234,24 @@ function zeichnen() {
     + block('Stammkunden (3+ Mieten)', C.stamm, 'Alle Stammkunden sind angeschrieben.')
     + block('Schläfer (über 6 Monate)', C.schlaf, 'Keine schlafenden Kunden, stark.');
 
+  const parseNum = v => { if (!v) return 0; v = String(v).trim().replace(/[^\d.,-]/g, '');
+    if (v.indexOf(',') > -1) v = v.replace(/\./g, '').replace(',', '.'); const n = parseFloat(v); return isNaN(n) ? 0 : n; };
+  const textVon = c => {
+    if (!c.bauText) return c.text;
+    const inp = document.querySelector('[data-preis="' + c.id + '"]');
+    return c.bauText(inp ? parseNum(inp.value) : 0);
+  };
   document.querySelectorAll('[data-wa]').forEach(el => el.onclick = () => {
     const c = ALLE[el.dataset.wa]; if (!c) return;
-    const url = c.tel ? 'https://wa.me/' + digitsOnly(c.tel) + '?text=' + encodeURIComponent(c.text)
-      : 'https://wa.me/?text=' + encodeURIComponent(c.text);
+    const txt = textVon(c);
+    const url = c.tel ? 'https://wa.me/' + digitsOnly(c.tel) + '?text=' + encodeURIComponent(txt)
+      : 'https://wa.me/?text=' + encodeURIComponent(txt);
     window.open(url, '_blank');
   });
   document.querySelectorAll('[data-copy]').forEach(el => el.onclick = async () => {
     const c = ALLE[el.dataset.copy]; if (!c) return;
-    try { await navigator.clipboard.writeText(c.text); } catch (e) {
-      const ta = document.createElement('textarea'); ta.value = c.text;
+    try { await navigator.clipboard.writeText(textVon(c)); } catch (e) {
+      const ta = document.createElement('textarea'); ta.value = textVon(c);
       document.body.appendChild(ta); ta.select(); document.execCommand('copy'); ta.remove();
     }
     el.classList.add('done'); el.textContent = 'Kopiert';
