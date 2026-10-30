@@ -67,7 +67,7 @@
 </div>
 
 <div class="wrap">
-  <div class="hinweis">Der Radar liest die Mietverträge dieses Geräts und zeigt fertige Umsatz-Chancen mit Kopiertext. "Erledigt" blendet eine Chance aus, bis es einen neuen Anlass gibt.</div>
+  <div class="hinweis">Der Radar liest die Verträge dieses Geräts und zeigt fertige Umsatz-Chancen mit Kopiertext. "Erledigt" blendet eine Chance aus, bis es einen neuen Anlass gibt.</div>
   <div id="radar"></div>
 </div>
 
@@ -176,7 +176,7 @@ function chancen() {
     if (weg[id]) return;
     C.jahr.push({ id, name: v.name, tel: v.telefon,
       info: 'Vor einem Jahr (' + de(v.vonD) + '): ' + (v.auto || ''),
-      text: '*Heute vor einem Jahr waren Sie mit dem ' + (v.auto || 'Mietwagen') + ' unterwegs*\n\nZeit für eine Wiederholung? Zum Jahrestag schenken wir Ihnen *100 Freikilometer extra* auf Ihre nächste Miete.\n\nWann dürfen wir den Wagen wieder für Sie bereitstellen?\n\nIhr Mietix Team' });
+      text: '*Vor einem Jahr waren Sie mit dem ' + (v.auto || 'Mietwagen') + ' unterwegs*\n\nZeit für eine Wiederholung? Zum Jahrestag schenken wir Ihnen *100 Freikilometer extra* auf Ihre nächste Miete.\n\nWann dürfen wir den Wagen wieder für Sie bereitstellen?\n\nIhr Mietix Team' });
   });
 
   /* 4. Stammkunden: 3 oder mehr Mieten */
@@ -231,8 +231,8 @@ function zeichnen() {
     block('Heute verlängern', C.verl, 'Keine Rückgabe heute, nach der das Fahrzeug frei wäre.')
     + block('Geburtstage (14 Tage)', C.geb, 'Kein Kunde hat in den nächsten 14 Tagen Geburtstag.')
     + block('Miet-Jahrestage (7 Tage)', C.jahr, 'Kein Jahrestag in den nächsten 7 Tagen.')
-    + block('Stammkunden (3+ Mieten)', C.stamm, 'Alle Stammkunden sind angeschrieben.')
-    + block('Schläfer (über 6 Monate)', C.schlaf, 'Keine schlafenden Kunden, stark.');
+    + block('Stammkunden (3+ Mieten)', C.stamm, 'Keine offenen Stammkunden.')
+    + block('Lange nicht gemietet (über 6 Monate)', C.schlaf, 'Kein Kunde ist länger als 6 Monate weg.');
 
   const parseNum = v => { if (!v) return 0; v = String(v).trim().replace(/[^\d.,-]/g, '');
     if (v.indexOf(',') > -1) v = v.replace(/\./g, '').replace(',', '.'); const n = parseFloat(v); return isNaN(n) ? 0 : n; };
