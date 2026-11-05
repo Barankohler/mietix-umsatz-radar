@@ -93,11 +93,15 @@ function digitsOnly(t) {
 }
 
 /* Tagespreise aus der gemeinsamen Preisdatei (für das Verlängerungs-Angebot) */
-let PREISE = {};
+let PREISE = {}, RD = null;
+/* Normalpreis = was der Folgetag nach den Preisregeln kostet, dieselbe Rechnung wie Zentrale und Mietvertrag (05.11.2026) */
+function radarMiete(a, s, d) { const W = RD.faktor.reduce((x, y) => x + y, 0); let f = Math.floor(d / 7) * W; for (let k = 0; k < d % 7; k++) f += RD.faktor[(s + k) % 7];
+  const g = d === 1 && s >= 4 ? (a.frSa || a.gp * RD.faktor[s]) : a.gp * f; return Math.round(g * (1 - RD.rabatt[Math.min(d, RD.days) - 1])); }
+function radarFolgetag(a, v) { const t = Math.max(1, Math.round((new Date(v.bisD + 'T12:00') - new Date(v.vonD + 'T12:00')) / 864e5)), s = (new Date(v.vonD + 'T12:00').getDay() + 6) % 7; return radarMiete(a, s, t + 1) - radarMiete(a, s, t); }
 try {
   fetch('https://barankohler.github.io/mietix-preise/preise.json', { cache: 'no-store' })
     .then(r => r.ok ? r.json() : null)
-    .then(pd => { if (pd && pd.cars) { pd.cars.forEach(c => { PREISE[c.anzeige || c.n] = c.gp; }); zeichnen(); } })
+    .then(pd => { if (pd && pd.cars) { RD = pd; pd.cars.forEach(c => { PREISE[c.anzeige || c.n] = c; }); zeichnen(); } })
     .catch(() => {});
 } catch (e) {}
 
@@ -134,12 +138,12 @@ function chancen() {
     if (belegt(v.auto, v.nr)) return;
     const id = 'verl-' + v.nr + '-' + HEUTE;
     if (weg[id]) return;
-    const preis = PREISE[v.auto];
+    const preis = PREISE[v.auto] && v.vonD ? radarFolgetag(PREISE[v.auto], v) : 0;
     /* Preisvorschlag: 15 % unter dem Tagespreis, auf einen 9er-Preis gerundet. Den
        endgültigen Verlängerungspreis bestimmt Baran je Fall im Preisfeld der Zeile. */
-    const vorschlag = preis ? Math.max(9, Math.round(preis * 0.85 / 10) * 10 - 1) : 0;
+    const vorschlag = preis ? Math.min(preis - 10, Math.max(9, Math.round(preis * 0.85 / 10) * 10 - 1)) : 0;
     C.verl.push({ id, name: v.name, tel: v.telefon, vorschlag,
-      info: v.auto + ', Rückgabe heute ' + (v.bisU || '') + ', danach frei' + (preis ? ', Tagespreis ' + eur(preis) + ' €' : ''),
+      info: v.auto + ', Rückgabe heute ' + (v.bisU || '') + ', danach frei' + (preis ? ', Folgetag ' + eur(preis) + ' €' : ''),
       bauText: p => {
         const angebot = p
           ? '*1 weiterer Tag für nur ' + eur(p) + ' €' + (preis && p < preis ? ' statt ' + eur(preis) + ' €' : '') + '*'
